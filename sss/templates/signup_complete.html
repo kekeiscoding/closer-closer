@@ -1,13 +1,21 @@
 {% extends 'base.html' %}
 {% block title %}Account created · ISATU - SSS{% endblock %}
 {% block content %}
-<div class="checkout-layout">
-  <section class="panel form-panel">
+<div class="checkout-layout checkout-panel">
+  <div class="checkout-hero">
+    <p>Student Services System</p>
     <h1>Account created</h1>
-    <p class="lead">Your student ID</p>
-    <p class="order-id"><strong class="code">{{ identity }}</strong></p>
-    <p>Use this ID and the password you chose to sign in.</p>
-    <p class="lead"><a class="button primary" href="{{ url_for('login', identity=identity) }}">Continue to sign in</a></p>
+    <p>Save your assigned student ID before continuing.</p>
+  </div>
+  <section class="panel form-panel checkout-body">
+    <div class="id-callout">
+      <span>Assigned student ID</span>
+      <strong class="code">{{ identity }}</strong>
+    </div>
+    <p class="panel-copy">Use this student ID and the password you chose whenever you sign in to request documents or check order status.</p>
+    <div class="panel-actions">
+      <a class="button primary" href="{{ url_for('login', identity=identity) }}">Continue to sign in</a>
+    </div>
   </section>
 </div>
 {% endblock %}

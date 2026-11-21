@@ -34,7 +34,9 @@ def student(identity):
 
 def fields(form):
     names = ("first_name", "middle_name", "last_name", "program", "year_level", "section", "college")
-    result = {name: form.get(name, "").strip() for name in names}
+    result = {name: " ".join(form.get(name, "").split()) for name in names}
+    result["program"] = result["program"].upper()
+    result["section"] = result["section"].upper()
     errors = []
     for name in names:
         if name != "middle_name" and not result[name]:
@@ -150,6 +152,10 @@ def register_students(app, login_required):
                 connection.execute("UPDATE students SET active=0, revision=? WHERE id=?",
                                    (secrets.token_hex(16), account["id"]))
                 flash("Student account deactivated.")
+            elif action == "reactivate":
+                connection.execute("UPDATE students SET active=1, revision=? WHERE id=?",
+                                   (secrets.token_hex(16), account["id"]))
+                flash("Student account reactivated.")
             elif action == "delete":
                 if account["active"] or request.form.get("confirm_id", "") != account["id"]:
                     flash("Enter the exact student ID for a deactivated account.")

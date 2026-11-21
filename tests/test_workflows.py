@@ -355,11 +355,14 @@ def test_student_account_lifecycle(app):
     visitor = app.test_client()
     form = {
         "first_name": "Demo", "middle_name": "", "last_name": "Sample",
-        "program": "BSIT", "year_level": "1", "section": "A", "college": "Computing",
+        "program": "bsit", "year_level": "1", "section": "a", "college": "Computing",
         "password": "demo-password", "confirm_password": "demo-password",
     }
     result = visitor.post("/signup", data=form, follow_redirects=True)
     identity = search(r"\d{4}-\d{4}-[AUI]", result.get_data(as_text=True)).group()
+    with app.app_context():
+        row = database.db().execute("SELECT program, section FROM students WHERE id=?", (identity,)).fetchone()
+        assert row["program"] == "BSIT" and row["section"] == "A"
     assert visitor.post("/login", data={"identity": identity, "password": "demo-password"}).status_code == 303
     other_session = app.test_client()
     other_session.post("/login", data={"identity": identity, "password": "demo-password"})
@@ -394,6 +397,10 @@ def test_student_account_lifecycle(app):
     assert app.test_client().post(f"/checkout/{token}").status_code == 409
     assert admin.post(f"/admin/cashier/{unpaid}/confirm").status_code == 409
     assert visitor.get("/requests").status_code == 302
+    assert admin.post(f"/admin/students/{identity}/reactivate").status_code == 303
+    assert visitor.post("/login", data={"identity": identity, "password": "new-password"}).status_code == 303
+    assert visitor.get("/requests").status_code == 200
+    assert admin.post(f"/admin/students/{identity}/deactivate").status_code == 303
     assert admin.post(f"/admin/students/{identity}/delete", data={"confirm_id": identity}).status_code == 303
     with app.app_context():
         assert database.db().execute("SELECT 1 FROM students WHERE id=?", (identity,)).fetchone() is None

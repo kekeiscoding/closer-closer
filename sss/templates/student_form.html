@@ -1,45 +1,116 @@
 {% extends 'base.html' %}
-{% from 'components.html' import csrf with context %}
+{% from 'components.html' import csrf, icon with context %}
 {% block title %}{{ 'Sign up' if mode == 'signup' else 'Change password' if mode == 'password' else 'Edit student' }} · ISATU - SSS{% endblock %}
 {% block content %}
-<div class="{{ 'checkout-layout' if mode == 'signup' else '' }}">
+<div class="{{ 'checkout-layout' if mode == 'signup' else 'narrow-content' if mode == 'password' else '' }}">
   <div class="page-head">
+    {% if mode == 'edit' %}
+      <a class="back-link" href="{{ url_for('student_list') }}">{{ icon('back', 16) }} Students</a>
+    {% elif mode == 'password' %}
+      <a class="back-link" href="{{ url_for('home') }}">{{ icon('back', 16) }} Overview</a>
+    {% endif %}
     <h1>{{ 'Create a student account' if mode == 'signup' else 'Change password' if mode == 'password' else 'Student details' }}</h1>
     {% if mode == 'signup' %}<p class="lead">Your student ID will be generated when you sign up.</p>{% endif %}
-    {% if mode == 'edit' %}<p class="lead">{{ account.id }} · {{ 'Active' if account.active else 'Deactivated' }}</p>{% endif %}
+    {% if mode == 'edit' %}
+      <p class="lead"><span class="code">{{ account.id }}</span> · <span class="status {{ 'paid' if account.active else 'pending' }}">{{ 'Active' if account.active else 'Deactivated' }}</span></p>
+    {% endif %}
   </div>
   {% if errors %}<div class="notice danger" role="alert"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
-  <form method="post" class="panel form-panel form-stack">
-    {{ csrf() }}
-    {% if mode != 'password' %}
-    <div class="field-grid">
-      {% for key, label in [('first_name','Given name'),('middle_name','Middle name (optional)'),('last_name','Surname'),('program','Course'),('year_level','Year level'),('section','Section'),('college','College')] %}
-      <label class="field"><span>{{ label }}</span><input name="{{ key }}" value="{{ data.get(key, '') }}" maxlength="100" {% if key != 'middle_name' %}required{% endif %}></label>
-      {% endfor %}
-    </div>
+  <div class="form-stack">
+    <form method="post" class="panel form-panel form-stack">
+      {{ csrf() }}
+      {% if mode != 'password' %}
+      <div class="field-grid">
+        <label class="field"><span>Given name</span>
+          <input name="first_name" value="{{ data.get('first_name', '') }}" placeholder="e.g. Keane" autocomplete="given-name" maxlength="100" required>
+        </label>
+        <label class="field"><span>Middle name (optional)</span>
+          <input name="middle_name" value="{{ data.get('middle_name', '') }}" placeholder="Optional" autocomplete="additional-name" maxlength="100">
+        </label>
+        <label class="field"><span>Surname</span>
+          <input name="last_name" value="{{ data.get('last_name', '') }}" placeholder="e.g. Prudente" autocomplete="family-name" maxlength="100" required>
+        </label>
+        <label class="field"><span>Course</span>
+          <input class="uppercase-input" name="program" value="{{ data.get('program', '') }}" placeholder="e.g. BSIT" autocapitalize="characters" maxlength="100" required>
+        </label>
+        <label class="field"><span>Year level</span>
+          <input name="year_level" value="{{ data.get('year_level', '') }}" placeholder="e.g. 3" inputmode="numeric" maxlength="100" required>
+        </label>
+        <label class="field"><span>Section</span>
+          <input class="uppercase-input" name="section" value="{{ data.get('section', '') }}" placeholder="e.g. A" autocapitalize="characters" maxlength="100" required>
+        </label>
+        <label class="field full"><span>College</span>
+          <input name="college" value="{{ data.get('college', '') }}" placeholder="e.g. College of Computing and Informatics" list="isatu-colleges" maxlength="100" required>
+          <datalist id="isatu-colleges">
+            <option value="College of Computing and Informatics">
+            <option value="College of Arts and Sciences">
+            <option value="College of Education">
+            <option value="College of Engineering and Architecture">
+            <option value="College of Industrial Technology">
+          </datalist>
+        </label>
+      </div>
+      {% endif %}
+      {% if mode == 'password' %}
+        <label class="field"><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+      {% endif %}
+      {% if mode != 'edit' %}
+        <label class="field"><span>{{ 'New password' if mode == 'password' else 'Password' }}</span><input type="password" name="password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+        <label class="field"><span>Confirm password</span><input type="password" name="confirm_password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+      {% endif %}
+      <div class="panel-actions"><button class="button primary" type="submit">{{ 'Sign up' if mode == 'signup' else 'Update password' if mode == 'password' else 'Save details' }}</button></div>
+    </form>
+    {% if mode == 'edit' %}
+    <section class="panel form-panel" aria-labelledby="account-actions-heading">
+      <div class="form-head"><h2 id="account-actions-heading">Account actions</h2></div>
+      <div class="action-list">
+        <div class="action-row">
+          <div class="action-copy">
+            <h3>Reset password</h3>
+            <p>Sets the password back to the student’s surname and signs out active sessions.</p>
+          </div>
+          <form method="post" action="{{ url_for('student_action', identity=account.id, action='reset-password') }}">
+            {{ csrf() }}<button class="button secondary" type="submit">Reset password to surname</button>
+          </form>
+        </div>
+        {% if account.active %}
+        <div class="action-row">
+          <div class="action-copy">
+            <h3>Deactivate account</h3>
+            <p>Prevents sign-in and blocks unpaid checkouts while keeping existing records.</p>
+          </div>
+          <form method="post" action="{{ url_for('student_action', identity=account.id, action='deactivate') }}">
+            {{ csrf() }}<button class="button secondary" type="submit">Deactivate student</button>
+          </form>
+        </div>
+        {% else %}
+        <div class="action-row">
+          <div class="action-copy">
+            <h3>Reactivate account</h3>
+            <p>Restores sign-in access and allows this student to submit and pay for requests again.</p>
+          </div>
+          <form method="post" action="{{ url_for('student_action', identity=account.id, action='reactivate') }}">
+            {{ csrf() }}<button class="button primary" type="submit">Reactivate student</button>
+          </form>
+        </div>
+        <div class="action-row danger-zone">
+          <form method="post" action="{{ url_for('student_action', identity=account.id, action='delete') }}" class="form-stack">
+            {{ csrf() }}
+            <div class="action-copy">
+              <h3>Permanently delete student</h3>
+              <p>Permanent deletion removes this student and all associated requests, payments, attachments, and PDFs. This cannot be undone.</p>
+            </div>
+            <label class="field"><span>Enter <span class="code">{{ account.id }}</span> to confirm</span>
+              <input name="confirm_id" placeholder="{{ account.id }}" autocomplete="off" required>
+            </label>
+            <div class="panel-actions"><button class="button danger" type="submit">Permanently delete student</button></div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </section>
     {% endif %}
-    {% if mode == 'password' %}<label class="field"><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>{% endif %}
-    {% if mode != 'edit' %}
-    <label class="field"><span>{{ 'New password' if mode == 'password' else 'Password' }}</span><input type="password" name="password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
-    <label class="field"><span>Confirm password</span><input type="password" name="confirm_password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
-    {% endif %}
-    <div><button class="button primary" type="submit">{{ 'Sign up' if mode == 'signup' else 'Update password' if mode == 'password' else 'Save details' }}</button></div>
-  </form>
-  {% if mode == 'signup' %}<p class="lead"><a href="{{ url_for('login') }}">Back to sign in</a></p>{% endif %}
-  {% if mode == 'edit' %}
-  <section class="panel form-panel dashboard-section">
-    <h2>Account actions</h2>
-    <form method="post" action="{{ url_for('student_action', identity=account.id, action='reset-password') }}">{{ csrf() }}<button class="button secondary" type="submit">Reset password to surname</button></form>
-    {% if account.active %}
-      <form method="post" action="{{ url_for('student_action', identity=account.id, action='deactivate') }}">{{ csrf() }}<button class="button secondary" type="submit">Deactivate student</button></form>
-    {% else %}
-      <form method="post" action="{{ url_for('student_action', identity=account.id, action='delete') }}" class="form-stack">
-        {{ csrf() }}<p>Permanent deletion removes this student and all associated requests, payments, attachments, and PDFs.</p>
-        <label class="field"><span>Enter {{ account.id }} to confirm</span><input name="confirm_id" required></label>
-        <div><button class="button secondary" type="submit">Permanently delete student</button></div>
-      </form>
-    {% endif %}
-  </section>
-  {% endif %}
+  </div>
+  {% if mode == 'signup' %}<p class="form-footer-link">Already have an account? <a href="{{ url_for('login') }}">Back to sign in</a></p>{% endif %}
 </div>
 {% endblock %}

@@ -1,44 +1,60 @@
 {% extends 'base.html' %}
-{% from 'components.html' import request_table with context %}
+{% from 'components.html' import request_table, icon with context %}
 {% block title %}Overview · ISATU - SSS{% endblock %}
 {% block content %}
 {% set admin = g.user.role == 'admin' %}
-<section class="hero">
-  <div class="site-width">
-    <h1>{{ 'Admin overview' if admin else 'Welcome, ' ~ g.user.first_name ~ '.' }}</h1>
-    <p>{{ 'Review requests, record payments, and verify documents.' if admin else 'Request documents, book appointments, and pay for student services.' }}</p>
-    {% if not admin %}<p class="hero-profile">{{ g.user.course }} · {{ g.user.college }}</p>{% endif %}
+<section class="hero overview-hero" data-hero-parallax>
+  <div class="hero-backdrop" aria-hidden="true">
+    <img class="hero-photo" src="{{ url_for('static', filename='library.jpg') }}" width="1500" height="996"
+         fetchpriority="high" alt="">
+  </div>
+  <div class="site-width office-width hero-inner">
+    <div class="hero-text">
+      <h1>{{ 'Admin overview' if admin else 'Welcome, ' ~ g.user.first_name ~ '.' }}</h1>
+      <p>{{ 'Review requests, record payments, and verify issued documents.' if admin else 'Request records, schedule clinic visits, and pay for student services.' }}</p>
+      <div class="hero-actions">
+        {% if admin %}
+          <a class="button primary" href="{{ url_for('admin_requests') }}">View requests</a>
+          <a class="button hero-secondary" href="{{ url_for('verification') }}">Verify a document</a>
+        {% else %}
+          <a class="button primary" href="{{ url_for('registrar_request') }}">Request documents</a>
+          <a class="button hero-secondary" href="{{ url_for('student_requests') }}">My requests</a>
+        {% endif %}
+      </div>
+      {% if not admin %}<p class="hero-profile">{{ g.user.course }} · {{ g.user.college }}</p>{% endif %}
+    </div>
   </div>
 </section>
 <section class="office-section" aria-labelledby="services-heading">
-  <div class="site-width">
+  <div class="site-width office-width">
     <h2 id="services-heading">{{ 'Admin tools' if admin else 'University offices' }}</h2>
     <div class="service-grid">
       {% if admin %}
         {% set services = [
-          ('Cashier', 'Look up orders and record in-person payments.', 'Find an order', 'admin_cashier'),
-          ('Verify documents', 'Look up a document ID or scan a verification QR.', 'Verify a document', 'verification'),
-          ('All requests', 'Review submitted forms and payment status.', 'View submitted requests', 'admin_requests')
+          ('Cashier', 'Look up orders and record in-person payments.', 'Find an order', 'admin_cashier', 'wallet'),
+          ('Verify documents', 'Look up a document ID or scan a verification QR.', 'Verify a document', 'verification', 'scan'),
+          ('All requests', 'Review submitted forms and payment status.', 'View submitted requests', 'admin_requests', 'file')
         ] %}
       {% else %}
         {% set services = [
-          ('OSAS', 'ID and lanyard services, medical appointments, and dental appointments.', 'Choose a service', 'osas_index'),
-          ('Registrar', 'Transcripts, diplomas, certifications, and other academic records.', 'Request documents', 'registrar_request'),
-          ('Cashier', 'Pay for your request online or in person.', 'Find an order', 'cashier')
+          ('OSAS', 'ID and lanyard services, medical appointments, and dental appointments.', 'Choose a service', 'osas_index', 'badge'),
+          ('Registrar', 'Transcripts, diplomas, certifications, and other academic records.', 'Request documents', 'registrar_request', 'file'),
+          ('Cashier', 'Pay for your request online or in person.', 'Find an order', 'cashier', 'wallet')
         ] %}
       {% endif %}
-      {% for title, description, action, endpoint in services %}
-        <article class="service-card">
+      {% for title, description, action, endpoint, glyph in services %}
+        <article class="service-card office-card">
+          <div class="office-icon">{{ icon(glyph, 30) }}</div>
           <h3>{{ title }}</h3>
           <p>{{ description }}</p>
-          <a class="service-action" href="{{ url_for(endpoint) }}">{{ action }}</a>
+          <a class="service-action" href="{{ url_for(endpoint) }}">{{ action }} {{ icon('right', 14) }}</a>
         </article>
       {% endfor %}
     </div>
   </div>
 </section>
-<section class="activity-section" aria-labelledby="activity-heading">
-  <div class="site-width">
+<section class="activity-section" aria-labelledby="activity-heading" data-payment-content="activity">
+  <div class="site-width office-width">
     <div class="section-head"><h2 id="activity-heading">Recent requests</h2><a href="{{ url_for('admin_requests' if admin else 'student_requests') }}">View all</a></div>
     {% if orders %}
       {{ request_table(orders, admin) }}

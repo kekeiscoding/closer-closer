@@ -4,7 +4,7 @@
 
 {% macro field(field, condition='') %}
   {% set value = raw.get(field.name, '') %}
-  {% set type = {'year':'number', 'age':'number', 'pain':'number', 'school_year':'text'}.get(field.kind, field.kind) %}
+  {% set type = {'year':'number', 'pain':'number', 'school_year':'text'}.get(field.kind, field.kind) %}
   {% set error = errors.get(field.name) %}
   <div class="field {{ 'full' if field.wide or field.kind == 'checks' }}" {% if condition %}data-show-when="{{ condition }}"{% endif %}>
     {% if field.kind == 'checks' %}
@@ -27,8 +27,8 @@
       {% else %}
         <input id="{{ field.name }}" name="{{ field.name }}" type="{{ type }}" value="{{ value }}"
           {% if type in ['text', 'tel', 'email'] %}maxlength="200"{% endif %}
-          {% if field.kind == 'year' %}min="1900" max="2200"{% elif field.kind == 'age' %}min="0" max="120"{% elif field.kind == 'pain' %}min="0" max="10"{% endif %}
-          {% if field.name == 'preferred_date' %}min="{{ today }}"{% elif field.name in ['birth_date','last_visit'] %}max="{{ today }}"{% endif %}
+          {% if field.kind == 'year' %}min="1900" max="{{ today[:4] }}"{% elif field.kind == 'pain' %}min="0" max="10"{% endif %}
+          {% if field.name == 'preferred_date' %}min="{{ today }}"{% elif field.name in ['birth_date','last_visit','graduation_date'] %}max="{{ today }}"{% endif %}
           {% if field.required %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="{{ field.name }}-error"{% endif %}>
       {% endif %}
     {% endif %}

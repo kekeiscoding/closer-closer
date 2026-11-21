@@ -1,22 +1,37 @@
-# Closer Closer
+# ISATU - SSS
 
-These instructions apply throughout this repository and are shared by Codex and Gemini CLI.
+Shared repository instructions for Codex and Gemini CLI. `GEMINI.md` imports this file. The project is a Flask prototype for Iloilo Science and Technology University’s student services.
 
 ## Working in this repository
 
-- Run `git status --short --branch` before editing. Preserve existing changes, including work from another agent. If edits overlap, inspect the diff before proceeding.
-- Keep changes focused on the requested task. Once the project has a README and build configuration, follow the setup commands and conventions documented there.
-- Keep credentials and local environment files out of Git. Use placeholders in any example configuration.
+- Run `git status --short --branch` before editing. Inspect overlapping diffs and preserve existing changes, including work from another agent. The working tree may contain features that have been deployed and await a Git commit.
+- Keep changes focused on the requested task. Use the local setup, checks, and deployment commands in [README.md](README.md). The intended audience and demo flow are in [ISATU-SSS-Pitch-Brief.md](ISATU-SSS-Pitch-Brief.md).
+- Keep credentials, SQLite data, student information, payment tokens, and local environment files out of Git and logs. Use synthetic data for tests and demos.
 
-## Verification
+## Code map
 
-- Run the relevant tests, lint, or build checks defined by the project. Report which commands ran and any checks that were unavailable.
-- Review `git status --short` and `git diff --check` before handing off. If you add new files, inspect them too because unstaged diffs omit untracked files.
-- Update this file when the project gains a stack, a directory layout, and standard development commands. Gemini CLI loads these instructions through `GEMINI.md`.
+| Area | Location |
+| --- | --- |
+| Flask app, authentication, route handlers | `sss/__init__.py` |
+| Service catalog, form fields, date validation | `sss/catalog.py` |
+| SQLite schema, checkout tokens, payment and issuance | `sss/db.py` |
+| WebSocket status and HTTP fallback | `sss/live.py`, `frontend/payments.js` |
+| QR scanning, camera selection, and form behavior | `frontend/scanner.js` |
+| Templates, styles, and PDF generation | `sss/templates/`, `sss/static/style.css`, `sss/pdfs.py` |
+| Workflow tests and hosting | `tests/test_workflows.py`, `Dockerfile`, `compose.yml` |
 
-## Stack and commands
+## Behavior to preserve
 
-- `sss/` contains the Flask routes, server-rendered templates, SQLite persistence, and ReportLab PDF generation.
-- `frontend/scanner.js` contains the QR scanner and form behavior. Run `npm ci` and `npm run build` to bundle it.
-- Set up Python with `python3 -m venv .venv` and `.venv/bin/python -m pip install -r requirements-dev.txt`. Run the app with `.venv/bin/python -m flask --app sss run --port 8000`.
-- Run `.venv/bin/python -m pytest` for the request, payment, and PDF checks in `tests/`. The README documents QR testing and the Docker deployment.
+- The current payment QR opens `/checkout/<token>` without a login. Give that token access only to the order’s public line items, total, and simulated payment. Require student ownership or admin access for full order details, attachments, and PDFs. Require admin access to verify issued Registrar documents. Existing `/pay/<order-id>` links use student sign-in.
+- Confirm payment and issue PDFs in the same SQLite transaction. Repeated confirmation must return the original payment and files. Update open request views over WebSocket, with the HTTP status endpoint as a fallback, without reloading the page.
+- Validate Registrar attendance years, optional graduation date, and any grade coverage on the server. Show inconsistent older orders as needing review and block new payments on those unpaid orders. Retain existing paid records and issued PDFs so the admin can review the original. Use the Manila date for validation.
+- Clinic request forms ask for a preferred date and time and derive age from date of birth. The scanner lets users select from the cameras the browser exposes, including Continuity Camera when available.
+- Keep each issued Registrar copy’s document ID and QR on the first page only. Demo transcripts and diplomas carry sample markings.
+- Follow [DESIGN-apple.md](DESIGN-apple.md) for interface work. Use the existing ISATU seal and credited library photograph. Source any additional photography from supplied or licensed images.
+
+## Verification and deployment
+
+- Prioritize deployment speed and keep testing very limited: run only the minimal check needed for the change (e.g., `npm run build` for frontend edits or a quick targeted check) and avoid heavy browser walkthroughs or full verification suites unless explicitly requested.
+- Run `npm run build` for frontend changes. Only run `.venv/bin/python -m pytest` or local browser checks when needed for risky workflow, camera, or WebSocket changes.
+- Review `git status --short` and `git diff --check` before handoff. Report the commands run and any verification limits.
+- The deployed app uses the `isatu-sss` Compose project and a persistent SQLite volume. Keep the volume across releases and use the loopback service or a container-local health check for verification. The Cloudflare Tunnel origin uses Docker service DNS at `http://isatu-sss:1133`. See the README for deployment details.

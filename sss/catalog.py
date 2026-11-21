@@ -68,8 +68,8 @@ REGISTRAR_DETAILS = (
     ("Applicant information", (
         F("middle_initial", "Middle initial"),
         F("maiden_name", "Maiden name", hint="Surname used upon entry, if applicable."),
-        F("entry_from", "Entry year from", "year", True),
-        F("entry_to", "Entry year to", "year", True),
+        F("entry_from", "First year of attendance", "year", True),
+        F("entry_to", "Last year of attendance", "year", True, hint="Use the current year if you are still enrolled."),
         F("graduation_date", "Date of graduation", "date"),
     )),
     ("Contact details", (
@@ -238,8 +238,8 @@ def validate_scalar(field, value, errors):
             date.fromisoformat(value)
         elif field.kind == "time":
             time.fromisoformat(value)
-        elif field.kind in {"year", "age", "pain"}:
-            low, high = {"year": (1900, 2200), "age": (0, 120), "pain": (0, 10)}[field.kind]
+        elif field.kind in {"year", "pain"}:
+            low, high = {"year": (1900, 2200), "pain": (0, 10)}[field.kind]
             if not low <= int(value) <= high:
                 raise ValueError
         elif field.kind == "email":
@@ -379,17 +379,27 @@ def osas_submission(service, form):
         if answers["replacement_reason"] == "Other" and not answers["replacement_other"]:
             errors["replacement_other"] = "Enter the other reason."
     else:
-        today = datetime.now(MANILA).date()
+        now = datetime.now(MANILA)
+        today = now.date()
         if answers["preferred_date"] and "preferred_date" not in errors:
-            if date.fromisoformat(answers["preferred_date"]) < today:
+            preferred = date.fromisoformat(answers["preferred_date"])
+            if preferred < today:
                 errors["preferred_date"] = "Choose today or a later date."
+            elif preferred == today and answers["preferred_time"] and "preferred_time" not in errors:
+                selected = time.fromisoformat(answers["preferred_time"])
+                if (selected.hour, selected.minute) <= (now.hour, now.minute):
+                    errors["preferred_time"] = "Choose a time later than the current time."
         if answers["birth_date"] and "birth_date" not in errors:
             birth = date.fromisoformat(answers["birth_date"])
             if birth > today:
                 errors["birth_date"] = "Enter a date of birth in the past."
             else:
                 birthday_passed = (today.month, today.day) >= (birth.month, birth.day)
-                answers["age"] = str(today.year - birth.year - (not birthday_passed))
+                age = today.year - birth.year - (not birthday_passed)
+                if age > 120:
+                    errors["birth_date"] = "Enter a valid date of birth."
+                else:
+                    answers["age"] = str(age)
         if "Other" in answers["clinic_service"] and not answers["clinic_other"]:
             errors["clinic_other"] = "Enter the other service."
         if "Other" in answers["conditions"] and not answers["condition_other"]:

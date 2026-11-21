@@ -1,5 +1,6 @@
 import { BrowserQRCodeReader } from "@zxing/browser";
 import { DecodeHintType } from "@zxing/library";
+import "./payments.js";
 
 function prepareForm(form) {
   const conditional = form.querySelectorAll("[data-show-when]");
@@ -25,6 +26,11 @@ function prepareForm(form) {
       }
     }
     if (form.hasAttribute("data-registrar-form")) {
+      const first = form.elements.namedItem("entry_from").value;
+      const last = form.elements.namedItem("entry_to");
+      last.min = /^\d{4}$/.test(first) ? first : "1900";
+      form.elements.namedItem("graduation_date").min = /^\d{4}$/.test(last.value)
+        ? last.value + "-01-01" : "";
       const quantity = activeValues("services").reduce((sum, code) => {
         const number = form.elements.namedItem("copies_" + code).valueAsNumber;
         return sum + (number >= 1 && number <= 20 ? number : 0);
@@ -68,7 +74,9 @@ function prepareScanner(panel) {
   const video = panel.querySelector("[data-scan-video]");
   const upload = panel.querySelector("[data-scan-file]");
   const status = panel.querySelector("[data-scan-status]");
-  const link = panel.querySelector("[data-scan-link]");
+  const picker = panel.querySelector("[data-camera-picker]");
+  const cameras = panel.querySelector("[data-camera-select]");
+  const devices = navigator.mediaDevices;
   const supportedOrigin = new URL(panel.dataset.baseUrl).origin;
   let controls;
   let generation = 0;
@@ -109,15 +117,9 @@ function prepareScanner(panel) {
       location.assign(url.pathname + url.search);
       return true;
     }
-    if (mode === "order" && /^\/pay\/IS-[A-F0-9]{12}$/.test(url.pathname)) {
+    if (mode === "order" && /^\/(checkout\/[A-Za-z0-9_-]{43}|pay\/IS-[A-F0-9]{12})$/.test(url.pathname)) {
       stop();
-      link.href = url.pathname;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.hidden = false;
-      message("The payment QR is ready to open in a new tab.");
-      const checkoutTab = window.open(url.pathname, "_blank");
-      if (checkoutTab) checkoutTab.opener = null;
+      location.assign(url.pathname);
       return true;
     }
 
@@ -125,10 +127,25 @@ function prepareScanner(panel) {
     return false;
   }
 
-  camera.addEventListener("click", async () => {
-    link.hidden = true;
+  async function listCameras(active, selected) {
+    try {
+      const choices = (await devices.enumerateDevices()).filter(
+        (device) => device.kind === "videoinput" && device.deviceId,
+      );
+      if (active !== generation) return;
+      cameras.replaceChildren(...choices.map((device, index) =>
+        new Option(device.label || "Camera " + (index + 1), device.deviceId, false, device.deviceId === selected),
+      ));
+      picker.hidden = choices.length === 0;
+    } catch {
+      // A working camera can still scan when the browser restricts device listing.
+    }
+  }
+
+  async function startCamera(deviceId) {
+    stop();
     message("");
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!devices?.getUserMedia) {
       message("Camera access requires HTTPS or localhost. You can upload a QR image instead.");
       return;
     }
@@ -137,28 +154,40 @@ function prepareScanner(panel) {
     camera.disabled = true;
     try {
       const stream = await reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" } } },
+        { audio: false, video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: "environment" } } },
         video,
         (result) => {
           if (result && active === generation) handle(result);
         },
       );
-      if (active === generation) controls = stream;
-      else stream.stop();
+      if (active !== generation) {
+        stream.stop();
+        return;
+      }
+      controls = stream;
+      await listCameras(active, video.srcObject?.getVideoTracks()[0]?.getSettings().deviceId || deviceId);
     } catch {
       if (active === generation) {
         stop();
-        message("Camera unavailable. Allow camera access or upload a QR image.");
+        if (deviceId) {
+          preview.hidden = false;
+          await listCameras(generation);
+        }
+        message("Camera unavailable. Select another camera or upload a QR image.");
       }
     }
-  });
+  }
 
+  camera.addEventListener("click", () => startCamera());
+  cameras.addEventListener("change", () => startCamera(cameras.value));
+  devices?.addEventListener("devicechange", () => {
+    if (!preview.hidden) listCameras(generation, cameras.value);
+  });
   panel.querySelector("[data-scan-stop]").addEventListener("click", stop);
   upload.addEventListener("change", async () => {
     const file = upload.files[0];
     if (!file) return;
     stop();
-    link.hidden = true;
     message("Reading the QR image…");
     const imageUrl = URL.createObjectURL(file);
     try {
@@ -173,5 +202,47 @@ function prepareScanner(panel) {
   window.addEventListener("pagehide", stop);
 }
 
+function prepareHeroParallax(hero) {
+  if (
+    CSS.supports("(animation-timeline: view()) and (animation-range: entry)") ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    return;
+  }
+  const header = document.querySelector(".site-header");
+  let frame = 0;
+
+  function update() {
+    frame = 0;
+    const rect = hero.getBoundingClientRect();
+    const inset = header ? header.getBoundingClientRect().height : 0;
+    const height = rect.height || 1;
+    const shift = Math.max(0, Math.min(height, inset - rect.top));
+    hero.style.setProperty("--hero-shift", `${shift}px`);
+    hero.style.setProperty("--hero-progress", (shift / height).toFixed(4));
+  }
+
+  function schedule() {
+    if (!frame) frame = requestAnimationFrame(update);
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        window.addEventListener("scroll", schedule, { passive: true });
+        window.addEventListener("resize", schedule, { passive: true });
+        schedule();
+      } else {
+        window.removeEventListener("scroll", schedule);
+        window.removeEventListener("resize", schedule);
+      }
+    }
+  }, { threshold: 0 });
+
+  observer.observe(hero);
+  update();
+}
+
 document.querySelectorAll(".form-stack[method=post]").forEach(prepareForm);
 document.querySelectorAll("[data-scan-mode]").forEach(prepareScanner);
+document.querySelectorAll("[data-hero-parallax]").forEach(prepareHeroParallax);

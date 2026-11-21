@@ -57,6 +57,7 @@
   {% endif %}
 </header>
 <main id="main" class="{{ 'overview-main' if overview else 'main-content' if workspace else 'standalone' }}">
+  <div class="sr-only" role="status" data-payment-notice></div>
   {% for message in get_flashed_messages() %}<p class="notice success" role="status">{{ icon('check', 19) }} {{ message }}</p>{% endfor %}
   {% block content %}{% endblock %}
 </main>

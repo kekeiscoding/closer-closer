@@ -245,3 +245,105 @@ def test_generation_rolls_back_partial_payment(app, monkeypatch):
 def test_state_changes_require_csrf(app):
     app.config["WTF_CSRF_ENABLED"] = True
     assert app.test_client().post("/login", data={"identity": STUDENT, "password": "invalid"}).status_code == 400
+
+
+def test_guest_payment_is_scoped_and_updates_owner_status(app):
+    student = login(app.test_client(), STUDENT)
+    order_id = submit(student, registrar_form("others", others="Private special instruction"))
+    details = student.get(f"/requests/{order_id}").get_data(as_text=True)
+    assert 'href="/checkout/' in details
+    token = details.split('href="/checkout/', 1)[1].split('"', 1)[0]
+    assert len(token) == 43
+    guest = app.test_client()
+    page = guest.get(f"/checkout/{token}")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "Pay ₱50.00" in html and "Others (Specify)" in html
+    assert "Private special instruction" not in html and "Keane Prudente" not in html
+    assert guest.get(f"/checkout/{order_id}").status_code == 404
+    assert guest.get(f"/checkout/{token}/status").json == {"paid": False}
+    assert student.get("/payments/status").json == {"paid_orders": []}
+    assert guest.get("/payments/status").status_code == 401
+
+    for _ in range(2):
+        result = guest.post(f"/checkout/{token}", data={"total": "0"}, headers={"Accept": "application/json"})
+        assert result.status_code == 200 and result.json == {"paid": True}
+    assert guest.get(f"/checkout/{token}/status").json == {"paid": True}
+    assert student.get("/payments/status").json == {"paid_orders": [order_id]}
+    assert login(app.test_client(), OTHER_STUDENT).get("/payments/status").json == {"paid_orders": []}
+    [document] = files_for(app, order_id)
+    assert guest.get(f"/download/{document['id']}").status_code == 302
+    assert student.get(f"/download/{document['id']}").status_code == 200
+    with app.app_context():
+        order = database.get_order(order_id, detail=True)
+        assert order["total"] == 5000
+        assert order["paid_by"] == "guest-checkout"
+
+
+def test_guest_checkout_requires_csrf_but_not_sign_in(app):
+    student = login(app.test_client(), STUDENT)
+    order_id = submit(student, registrar_form("diploma"))
+    with app.app_context():
+        token = database.payment_token(order_id)
+    app.config["WTF_CSRF_ENABLED"] = True
+    guest = app.test_client()
+    path = f"/checkout/{token}"
+    assert guest.post(path).status_code == 400
+    html = guest.get(path).get_data(as_text=True)
+    csrf = html.split('name="csrf_token" value="', 1)[1].split('"', 1)[0]
+    assert guest.post(path, data={"csrf_token": csrf}).status_code == 303
+
+
+def test_registrar_attendance_and_grade_guardrails(app):
+    student = login(app.test_client(), STUDENT)
+    filed = datetime.now(MANILA).year
+    bad_attendance = registrar_form("tor", entry_from="2025", entry_to=str(filed + 2), graduation_date="2007-08-09")
+    response = student.post("/registrar", data=bad_attendance)
+    assert response.status_code == 422
+    assert b"Graduation cannot precede the first year of attendance" in response.data
+
+    grade_request = registrar_form("grades", grade_from_year="2024-2025", grade_from_sem="First semester",
+                                   grade_to_year="2025-2026", grade_to_sem="Second semester")
+    outside_attendance = {**grade_request, "entry_from": "2025"}
+    assert b"within the years you attended" in student.post("/registrar", data=outside_attendance).data
+    after_graduation = {**grade_request, "graduation_date": "2026-01-01",
+                        "grade_to_sem": "Summer term"}
+    assert b"cannot extend past graduation" in student.post("/registrar", data=after_graduation).data
+    future = {**grade_request, "grade_to_year": f"{filed}-{filed + 1}", "grade_to_sem": "Second semester"}
+    assert b"period that has already started" in student.post("/registrar", data=future).data
+
+
+def test_legacy_invalid_academic_dates_block_new_payments(app):
+    student = login(app.test_client(), STUDENT)
+    admin = login(app.test_client(), ADMIN)
+    with app.app_context():
+        account = DEMO_ACCOUNTS[STUDENT.casefold()]
+        order_id = database.create_order(
+            account, "Registrar", [("tor", REGISTRAR["tor"], 1)],
+            {"entry_from": "2025", "entry_to": "2028", "graduation_date": "2007-08-09"}, None, uuid4().hex,
+        )
+        token = database.payment_token(order_id)
+    assert b"Academic dates need review" in student.get(f"/requests/{order_id}").data
+    assert admin.post(f"/admin/cashier/{order_id}/confirm").status_code == 409
+    assert student.post(f"/pay/{order_id}").status_code == 409
+    assert app.test_client().post(f"/checkout/{token}").status_code == 409
+    assert not files_for(app, order_id)
+
+
+def test_clinic_derives_age_with_single_preferred_time(app):
+    student = login(app.test_client(), STUDENT)
+    html = student.get("/osas/medical").get_data(as_text=True)
+    assert 'name="schedule"' not in html and 'name="age"' not in html
+    date = (datetime.now(MANILA).date() + timedelta(days=1)).isoformat()
+    order_id = submit(student, {
+        "request_key": uuid4().hex, "consent": "yes",
+        "phone": "09123456789", "email": "student@example.test",
+        "sex": "Male", "birth_date": "2006-05-01",
+        "emergency_name": "Demo contact", "emergency_phone": "09120000000",
+        "preferred_date": date, "preferred_time": "15:00",
+        "clinic_service": MEDICAL_SERVICES[0], "complaint": "Demo appointment reason",
+    }, "/osas/medical")
+    with app.app_context():
+        answers = database.get_order(order_id, detail=True)["answers"]
+        assert int(answers["age"]) >= 18 and "schedule" not in answers
+        assert answers["preferred_time"] == "15:00"

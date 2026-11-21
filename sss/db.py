@@ -132,21 +132,20 @@ def order_data(row, *, include_answers=False, include_files=False):
     order["items"] = db().execute(
         "SELECT service, title, quantity FROM order_items WHERE order_id = ? ORDER BY rowid", (order["id"],),
     ).fetchall()
+    answers = json.loads(order.pop("answers"))
+    issues = {}
+    if order["office"] == "Registrar":
+        check_academic_dates(
+            dict(answers), issues,
+            any(item["service"] == "grades" for item in order["items"]),
+            datetime.fromisoformat(order["created_at"]).date(),
+        )
+    order["academic_issues"] = list(issues.values())
     if include_answers:
-        order["answers"] = json.loads(order["answers"])
-        issues = {}
-        if order["office"] == "Registrar":
-            check_academic_dates(
-                dict(order["answers"]), issues,
-                any(item["service"] == "grades" for item in order["items"]),
-                datetime.fromisoformat(order["created_at"]).date(),
-            )
-        order["academic_issues"] = list(issues.values())
+        order["answers"] = answers
         order["has_attachment"] = db().execute(
             "SELECT 1 FROM attachments WHERE order_id = ?", (order["id"],),
         ).fetchone() is not None
-    else:
-        del order["answers"]
     if include_files:
         order["files"] = db().execute(
             """SELECT id, title, copy, verifiable FROM issued_files

@@ -2,10 +2,10 @@
 {% from 'components.html' import icon, status, order_items, issued_files with context %}
 {% block title %}{{ order.id }} · ISATU - SSS{% endblock %}
 {% block content %}
-<div class="page-head">
+<div class="page-head" data-payment-content="request-heading">
   <a class="back-link" href="{{ url_for('admin_requests' if admin else 'student_requests') }}">{{ icon('back', 16) }} {{ 'All requests' if admin else 'My requests' }}</a>
   <h1>{{ 'Request received' if received else 'Request details' }}</h1>
-  <p class="lead">{{ 'Use your order ID at the cashier to pay for this request.' if received and not order.paid_at else order.profile.name ~ ' · ' ~ (order.created_at | date_label) }}</p>
+  <p class="lead">{{ 'Scan the payment QR or choose a way to pay.' if received and not order.paid_at else order.profile.name ~ ' · ' ~ (order.created_at | date_label) }}</p>
 </div>
 {% if order.academic_issues %}
   <div class="notice danger">

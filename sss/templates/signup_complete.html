@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Account created · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="checkout-layout">
+  <section class="panel form-panel">
+    <h1>Account created</h1>
+    <p class="lead">Your student ID</p>
+    <p class="order-id"><strong class="code">{{ identity }}</strong></p>
+    <p>Use this ID and the password you chose to sign in.</p>
+    <p class="lead"><a class="button primary" href="{{ url_for('login', identity=identity) }}">Continue to sign in</a></p>
+  </section>
+</div>
+{% endblock %}

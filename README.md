@@ -20,13 +20,13 @@ The app stores its SQLite database and session key under the ignored `instance/`
 
 ### Student accounts
 
-Students can sign up with a profile and password. The app assigns an ID using the Manila year, a random four-digit number, and an A, U, or I suffix. Students can change passwords in their account menu. Admins manage students, reset passwords to their current surname, deactivate access, and permanently delete deactivated accounts and their associated data.
+Students can sign up with a profile and password. The app assigns an ID using the Manila year, a random four-digit number, and an A, U, or I suffix. The account-created page displays the ID before the student proceeds to sign in. Students can change passwords in their account menu. Admins manage students, reset passwords to their current surname, deactivate access, and permanently delete deactivated accounts and their associated data.
 
 Existing demo students are migrated into SQLite once with their existing credentials. New students receive a consistent randomized sample transcript at their first transcript payment.
 
 ### Demo flow
 
-1. Sign in as a student, choose OSAS or Registrar, and submit a request. The receipt shows the order ID and a payment QR.
+1. Sign in as a student, choose OSAS or Registrar, and submit a request. The receipt shows the order ID, a payment QR, and a completed request-form PDF for printing before payment.
 2. Scan the QR on another device or open the checkout link. The guest checkout shows the requested items and total, and the only action needed to pay is the simulated LANDBANK Pay button. For an in-person payment, enter the order ID in Admin Cashier.
 3. Keep the receipt or My requests open to see payment confirmation and downloads update over WebSocket. Paid PDFs and attachments are available to the signed-in student and admin.
 4. To verify a Registrar document, sign in as admin and enter its ID, scan its QR, or upload an image of the first page. In the scanner, use the Camera menu to select an available device. An iPhone appears when the operating system makes Continuity Camera available to the browser.
@@ -43,6 +43,8 @@ git diff --check
 ```
 
 The workflow suite covers role access, guest checkout and CSRF, payment idempotency, Registrar date validation, existing orders, and PDF issuance. For a browser check, keep the student receipt and My Requests open, then pay from a separate signed-out browser context using the payment QR link. Confirm the receipt and downloads update without navigation. For camera changes, check device switching and QR image upload.
+
+Request-form PDFs use the four supplied DOCX forms exported as templates in `sss/form_templates/`. The app fills them from the saved order and places the order ID in the footer. Payment receipt and staff fields are left for the university to complete. Paid Registrar documents keep their separate verification IDs and QR codes.
 
 ## Payment routes
 

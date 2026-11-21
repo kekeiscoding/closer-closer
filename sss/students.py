@@ -77,9 +77,16 @@ def register_students(app, login_required):
                             continue
                     else:
                         raise RuntimeError("Could not allocate a student ID.")
-                flash(f"Account created. Your student ID is {identity}. Sign in to continue.")
-                return redirect(url_for("login", identity=identity), 303)
+                session["new_student_id"] = identity
+                return redirect(url_for("signup_complete"), 303)
         return render_template("student_form.html", mode="signup", data=request.form, errors=errors), 422 if errors else 200
+
+    @app.get("/signup/complete")
+    def signup_complete():
+        identity = session.get("new_student_id")
+        if not identity:
+            return redirect(url_for("signup"))
+        return render_template("signup_complete.html", identity=identity)
 
     @app.route("/account/password", methods=["GET", "POST"])
     @login_required("student")

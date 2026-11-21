@@ -28,6 +28,7 @@ from .db import (
 )
 from .live import register_payment_updates
 from .pdfs import qr_png
+from .request_forms import make_request_form
 from .students import register_students, student, verify_password
 
 
@@ -289,6 +290,13 @@ def register_views(app):
     @login_required("student")
     def student_detail(order_id):
         return detail_page(owns_order(order_id, detail=True))
+
+    @app.get("/requests/<order_id>/request-form.pdf")
+    @login_required()
+    def request_form_pdf(order_id):
+        order = owns_order(order_id, detail=True)
+        return send_file(BytesIO(make_request_form(order)), mimetype="application/pdf",
+                         as_attachment=True, download_name=f"{order_id}-request-form.pdf")
 
     @app.get("/admin/requests")
     @login_required("admin")

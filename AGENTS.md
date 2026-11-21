@@ -28,6 +28,7 @@ Shared repository instructions for Codex and Gemini CLI. `GEMINI.md` imports thi
 - Confirm payment and issue PDFs in the same SQLite transaction. Repeated confirmation must return the original payment and files. Update open request views over WebSocket, with the HTTP status endpoint as a fallback, without reloading the page.
 - Validate Registrar attendance years, optional graduation date, and any grade coverage on the server. Show inconsistent older orders as needing review and block new payments on those unpaid orders. Retain existing paid records and issued PDFs so the admin can review the original. Use the Manila date for validation.
 - Clinic request forms ask for a preferred date and time and derive age from date of birth. The scanner lets users select from the cameras the browser exposes, including Continuity Camera when available.
+- The request-form PDF is available to the owning student and admin immediately after submission. Preserve the supplied form layouts and the order ID footer, including on continuation pages.
 - Keep each issued Registrar copy’s document ID and QR on the first page only. Demo transcripts and diplomas carry sample markings.
 - Follow [DESIGN-apple.md](DESIGN-apple.md) for interface work. Use the existing ISATU seal and credited library photograph. Source any additional photography from supplied or licensed images.
 

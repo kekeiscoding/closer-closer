@@ -400,3 +400,47 @@ def test_student_account_lifecycle(app):
         assert database.db().execute("SELECT 1 FROM orders WHERE student_id=?", (identity,)).fetchone() is None
         database.init_db()
         assert database.db().execute("SELECT 1 FROM students WHERE id=?", (identity,)).fetchone() is None
+
+
+def test_signup_confirmation_and_unpaid_request_forms(app):
+    from sss.catalog import OSAS
+    from uuid import uuid4
+
+    visitor = app.test_client()
+    result = visitor.post("/signup", data={
+        "first_name": "Alex", "last_name": "Example", "program": "BSIT", "year_level": "1",
+        "section": "A", "college": "Computing", "password": "password-123", "confirm_password": "password-123",
+    })
+    assert result.location.endswith("/signup/complete")
+    confirmation = visitor.get(result.location)
+    assert b"Account created" in confirmation.data and b"Continue to sign in" in confirmation.data
+    assert visitor.get(result.location).data == confirmation.data
+    assert app.test_client().get("/signup/complete").status_code == 302
+
+    student = login(app.test_client(), STUDENT)
+    other = login(app.test_client(), OTHER_STUDENT)
+    account = DEMO_ACCOUNTS[STUDENT.casefold()]
+    cases = [
+        ("Registrar", [("tor", REGISTRAR["tor"], 1), ("grades", REGISTRAR["grades"], 2)],
+         {"entry_from": "2024", "entry_to": "2026", "tor_purpose": "Evaluation", "grade_from_year": "2024–2025"}),
+        ("OSAS", [("id-lanyard", OSAS["id-lanyard"][0], 1)],
+         {"id_service": "Replacement of ID", "replacement_reason": "Lost"}),
+        ("OSAS", [("medical", OSAS["medical"][0], 1)],
+         {"preferred_time": "10:30", "clinic_service": ["General medical consultation"]}),
+        ("OSAS", [("dental", OSAS["dental"][0], 1)],
+         {"preferred_time": "14:00", "clinic_service": ["Oral examination / check-up"],
+          "complaint": "A" * 1500}),
+    ]
+    for office, items, answers in cases:
+        with app.app_context():
+            order_id = database.create_order(account, office, items, answers, None, uuid4().hex)
+        path = f"/requests/{order_id}/request-form.pdf"
+        response = student.get(path)
+        assert response.status_code == 200
+        assert other.get(path).status_code == 404
+        pdf = PdfReader(BytesIO(response.data))
+        text = "".join(page.extract_text() for page in pdf.pages)
+        assert order_id in text and "Prudente" in text
+        if items[0][0] == "dental":
+            assert len(pdf.pages) > 1
+            assert all(order_id in page.extract_text() for page in pdf.pages)

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% from 'components.html' import request_table with context %}
+{% block title %}{{ 'All requests' if admin else 'My requests' }} · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'All requests' if admin else 'My requests' }}</h1>
+  <p class="lead">{{ 'Review student submissions and payment status across offices.' if admin else 'Find order IDs, review payment status, and download paid documents.' }}</p>
+</div>
+{% if orders %}
+  <div class="panel" data-payment-content="requests">{{ request_table(orders, admin) }}</div>
+{% else %}
+  <div class="panel empty"><div><h2>No requests yet</h2><p>{{ 'Student submissions will appear here.' if admin else 'Visit an office to submit your first request.' }}</p></div>
+  </div>
+{% endif %}
+{% endblock %}

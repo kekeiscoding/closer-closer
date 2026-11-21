@@ -1,0 +1,33 @@
+services:
+  isatu-sss:
+    image: isatu-sss:prototype
+    build: .
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      APP_BASE_URL: "${APP_BASE_URL:-https://hackathon.bisakol.com}"
+      ISATU_BEHIND_PROXY: "1"
+    ports:
+      - "127.0.0.1:${ISATU_HOST_PORT:-1133}:1133"
+    volumes:
+      - app-data:/data
+    networks:
+      tunnel:
+        aliases:
+          - isatu-sss
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:1133/healthz', timeout=3).close()"]
+      interval: 15s
+      timeout: 4s
+      start_period: 10s
+      retries: 4
+
+volumes:
+  app-data:
+
+networks:
+  tunnel:
+    external: true
+    name: cloudflare-tunnel_default

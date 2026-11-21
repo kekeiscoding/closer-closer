@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% from 'components.html' import icon, status, order_items, issued_files with context %}
+{% block title %}{{ order.id }} · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="back-link" href="{{ url_for('admin_requests' if admin else 'student_requests') }}">{{ icon('back', 16) }} {{ 'All requests' if admin else 'My requests' }}</a>
+  <h1>{{ 'Request received' if received else 'Request details' }}</h1>
+  <p class="lead">{{ 'Use your order ID at the cashier to pay for this request.' if received and not order.paid_at else order.profile.name ~ ' · ' ~ (order.created_at | date_label) }}</p>
+</div>
+{% if order.academic_issues %}
+  <div class="notice danger">
+    <div><strong>Academic dates need review</strong>
+      <ul>{% for issue in order.academic_issues %}<li>{{ issue }}</li>{% endfor %}</ul>
+    </div>
+  </div>
+{% endif %}
+<div class="two-column" data-payment-content="request" {% if not order.paid_at and not order.academic_issues %}data-payment-order="{{ order.id }}"{% endif %}>
+  <div class="form-stack">
+    {% if order.paid_at %}
+      <section class="panel form-panel"><div class="form-head"><h2>Downloads</h2></div>
+        {{ issued_files(order) }}
+      </section>
+    {% endif %}
+    <section class="panel form-panel">
+      <div class="form-head"><h2>Student details</h2></div>
+      <dl class="profile-grid">
+        <div><dt>Name</dt><dd>{{ order.profile.name }}</dd></div><div><dt>Student ID</dt><dd>{{ order.profile.id }}</dd></div>
+        <div><dt>Course / year / section</dt><dd>{{ order.profile.course }}</dd></div><div><dt>College</dt><dd>{{ order.profile.college }}</dd></div>
+      </dl>
+    </section>
+    {% for title, fields in groups %}
+      {% set ns = namespace(present=false) %}
+      {% for field in fields %}{% if order.answers.get(field.name) %}{% set ns.present = true %}{% endif %}{% endfor %}
+      {% if ns.present %}
+      <section class="panel form-panel"><div class="form-head"><h2>{{ title }}</h2></div>
+        <dl class="profile-grid">
+          {% for field in fields %}{% set answer = order.answers.get(field.name) %}{% if answer %}
+            <div class="{{ 'full' if field.wide }}"><dt>{{ field.label }}</dt><dd>{{ answer | join(', ') if field.kind == 'checks' else answer }}</dd></div>
+          {% endif %}{% endfor %}
+        </dl>
+      </section>
+      {% endif %}
+    {% endfor %}
+    {% if order.has_attachment %}<section class="panel form-panel"><div class="form-head"><h2>Good Moral clearance</h2></div>
+      <a class="button secondary" href="{{ url_for('clearance_download', order_id=order.id) }}">{{ icon('download', 18) }} Download clearance</a>
+    </section>{% endif %}
+  </div>
+  <aside class="panel form-panel order-summary" aria-label="Order summary">
+    <div class="form-head"><h2>Order summary</h2></div>
+    {{ status(order) }}
+    <p class="order-id"><span>Order ID</span><strong class="code">{{ order.id }}</strong></p>
+    {{ order_items(order) }}
+    {% if order.paid_at %}
+      <dl class="receipt">
+        <div><dt>Payment reference</dt><dd class="code">{{ order.receipt }}</dd></div>
+        <div><dt>Method</dt><dd>{{ order.payment_method | payment_label }}</dd></div>
+        <div><dt>Date paid</dt><dd>{{ order.paid_at | date_label }}</dd></div>
+      </dl>
+    {% elif order.academic_issues %}
+      {% if not admin %}<a class="button secondary wide-button" href="{{ url_for('registrar_request') }}">Start a corrected request</a>{% endif %}
+    {% elif not admin %}
+      <div class="receipt-payment">
+        <img class="qr-image" src="{{ url_for('payment_qr', order_id=order.id) }}" width="144" height="144" alt="Payment QR for {{ order.id }}">
+        <p class="form-hint">Scan to pay on another device.</p>
+        <a class="button primary wide-button" href="{{ checkout_url }}" target="_blank" rel="noreferrer">Pay online</a>
+        <a class="button subtle wide-button" href="{{ url_for('cashier', order_id=order.id) }}">Pay in person</a>
+      </div>
+    {% else %}
+      <a class="button primary wide-button" href="{{ url_for('admin_cashier', order_id=order.id) }}">Open in Cashier</a>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

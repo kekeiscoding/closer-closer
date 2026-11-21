@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}{{ code }} · ISATU - SSS{% endblock %}
+{% block content %}
+<section class="panel empty error-page">
+  <div><h1>{{ code }}</h1><p>{{ message }}</p><a class="button primary" href="{{ url_for('home') }}">Return to overview</a></div>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% from 'components.html' import icon, scanner with context %}
+{% block title %}Verify documents · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Verify documents</h1>
+  <p class="lead">Scan the QR at the bottom of page one or enter the document ID.</p>
+</div>
+<div class="two-column cashier-grid">
+  <section class="panel form-panel">
+    <div class="form-head"><h2>Find an issued document</h2></div>
+    <form class="lookup-form" action="{{ url_for('verification') }}" method="get">
+      <label class="field"><span>Document ID</span><input name="document_id" value="{{ query }}" placeholder="DOC-…" maxlength="40" required></label>
+      <button class="button primary" type="submit">Verify</button>
+    </form>
+    {{ scanner('document', config.APP_BASE_URL) }}
+  </section>
+  {% if searched %}
+  <section class="panel form-panel" aria-live="polite">
+    {% if document %}
+      <p class="notice success">{{ icon('check', 20) }} Issued by this ISATU - SSS prototype</p>
+      <h2>{{ document.title }}</h2>
+      <dl class="receipt">
+        <div><dt>Document ID</dt><dd class="code">{{ document.id }}</dd></div>
+        <div><dt>Student</dt><dd>{{ document.profile.name }} · {{ document.profile.id }}</dd></div>
+        <div><dt>Order ID</dt><dd class="code">{{ document.order_id }}</dd></div>
+        <div><dt>Copy</dt><dd>{{ document['copy'] }}</dd></div>
+        <div><dt>Date issued</dt><dd>{{ document.paid_at | date_label }}</dd></div>
+      </dl>
+      <a class="button primary" href="{{ url_for('download', file_id=document.id) }}">{{ icon('download', 18) }} Download original PDF</a>
+    {% else %}
+      <p class="notice danger">No issued document matches this ID.</p>
+      <p class="lead">Check the ID printed on the document and try again.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

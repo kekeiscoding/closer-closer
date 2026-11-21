@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!requirements.txt
+!package.json
+!package-lock.json
+!frontend/
+!frontend/**
+!sss/
+!sss/**
+sss/**/__pycache__/
+sss/static/scanner.js

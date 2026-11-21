@@ -1,0 +1,109 @@
+{% macro icon(name, size=22) -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if name == 'wallet' %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18m-5 5h2M6 14h4"/>
+{% elif name == 'file' %}<path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10l-7-7Z"/><path d="M13 3v7h7M8 14h8m-8 3h6"/>
+{% elif name == 'check' %}<path d="m5 12 4 4L19 6"/>
+{% elif name == 'scan' %}<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3m-8 0H5a2 2 0 0 1-2-2v-3M8 8h2v2H8zm6 0h2v2h-2zm-6 6h2v2H8zm6 0v2h2"/>
+{% elif name == 'download' %}<path d="M12 3v12m-4-4 4 4 4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+{% elif name == 'back' %}<path d="m15 6-6 6 6 6"/>
+{% elif name == 'down' %}<path d="m6 9 6 6 6-6"/>
+{% elif name == 'menu' %}<path d="M4 8h16M4 16h16"/>
+{% elif name == 'info' %}<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>
+{% endif %}
+</svg>
+{%- endmacro %}
+
+{% macro logo() -%}
+<span class="brand">
+  <img src="{{ url_for('static', filename='isatu.png') }}" width="24" height="24" alt="">
+  <span>ISATU - SSS</span>
+</span>
+{%- endmacro %}
+
+{% macro navigation(active, role) -%}
+{% set overview = ('Overview', 'home', ['home']) %}
+{% if role == 'admin' %}
+  {% set links = [overview,
+    ('Cashier', 'admin_cashier', ['admin_cashier']),
+    ('Verify documents', 'verification', ['verification', 'verify_document']),
+    ('All requests', 'admin_requests', ['admin_requests', 'admin_detail'])] %}
+{% else %}
+  {% set links = [overview,
+    ('OSAS', 'osas_index', ['osas_index', 'osas_request']),
+    ('Registrar', 'registrar_request', ['registrar_request']),
+    ('Cashier', 'cashier', ['cashier']),
+    ('My requests', 'student_requests', ['student_requests', 'student_detail'])] %}
+{% endif %}
+{% for title, endpoint, related in links %}
+  <a class="nav-link" href="{{ url_for(endpoint) }}" {% if active in related %}aria-current="page"{% endif %}>{{ title }}</a>
+{% endfor %}
+{%- endmacro %}
+
+{% macro status(order) -%}
+<span class="status {{ 'paid' if order.paid_at else 'pending' }}">{{ 'Paid' if order.paid_at else 'Needs review' if order.academic_issues else 'Awaiting payment' }}</span>
+{%- endmacro %}
+
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro order_items(order) %}
+<ul class="order-items">
+  {% for item in order['items'] %}
+  <li><span>{{ item.title }}<small>{{ item.quantity }} × {{ unit_price | money }}</small></span>
+      <strong>{{ (item.quantity * unit_price) | money }}</strong></li>
+  {% endfor %}
+</ul>
+<div class="order-total"><span>Total</span><strong>{{ order.total | money }}</strong></div>
+{% endmacro %}
+
+{% macro request_table(orders, admin=False) %}
+<div class="table-wrap">
+  <table role="table">
+    <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Request</th>{% if admin %}<th role="columnheader" scope="col">Student</th>{% endif %}<th role="columnheader" scope="col">Order ID</th><th role="columnheader" scope="col">Status</th><th role="columnheader" scope="col" class="right">Total</th></tr></thead>
+    <tbody role="rowgroup">
+      {% for order in orders %}
+        {% set href = url_for('admin_detail' if admin else 'student_detail', order_id=order.id) %}
+        <tr role="row" {% if not order.paid_at %}data-payment-order="{{ order.id }}"{% endif %}>
+          <td class="table-request" role="cell"><a class="table-title" href="{{ href }}">{{ order['items'][0].title }}{% if order['items']|length > 1 %} <small>+{{ order['items']|length - 1 }}</small>{% endif %}</a>
+            <small class="table-meta">{{ order.office }} · {{ order.created_at | date_label }}</small></td>
+          {% if admin %}<td class="table-student" role="cell">{{ order.profile.name }}<small class="table-meta">{{ order.student_id }}</small></td>{% endif %}
+          <td class="table-order" role="cell"><span class="table-key">Order ID</span><span class="code">{{ order.id }}</span></td>
+          <td class="table-status" role="cell">{{ status(order) }}</td>
+          <td class="table-total right money" role="cell">{{ order.total | money }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% macro scanner(mode, base_url) %}
+<div id="{{ mode }}-scanner" class="scan-tools" data-scan-mode="{{ mode }}" data-base-url="{{ base_url }}">
+  <div class="scan-buttons">
+    <button class="button secondary" type="button" data-scan-camera>{{ icon('scan', 18) }} Scan with camera</button>
+    <label class="button secondary file-button">{{ icon('file', 17) }} Upload QR image
+      <input class="sr-only" type="file" accept="image/*" data-scan-file aria-label="Upload QR image">
+    </label>
+  </div>
+  <div data-scan-view hidden>
+    <label class="field camera-picker" data-camera-picker hidden><span>Camera</span>
+      <select data-camera-select aria-label="Camera"></select>
+    </label>
+    <video playsinline muted data-scan-video aria-label="QR camera preview"></video>
+    <button class="button subtle" type="button" data-scan-stop>Stop camera</button>
+  </div>
+  <p class="scan-status" data-scan-status role="status" hidden></p>
+  <a class="button secondary" data-scan-link hidden>Open scanned link</a>
+</div>
+{% endmacro %}
+
+{% macro issued_files(order) %}
+<div class="file-list">
+  {% for file in order.files %}
+  <div class="file-row">
+    <span class="file-label"><strong>{{ file.title }}</strong>
+      <small>{% if file.verifiable %}<span class="code">{{ file.id }}</span> · {% endif %}Copy {{ file['copy'] }}</small></span>
+    <a class="button secondary compact" href="{{ url_for('download', file_id=file.id) }}">{{ icon('download', 17) }} <span>Download PDF</span></a>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% from 'components.html' import request_table with context %}
+{% block title %}Overview · ISATU - SSS{% endblock %}
+{% block content %}
+{% set admin = g.user.role == 'admin' %}
+<section class="hero">
+  <div class="site-width">
+    <h1>{{ 'Admin overview' if admin else 'Welcome, ' ~ g.user.first_name ~ '.' }}</h1>
+    <p>{{ 'Review requests, record payments, and verify documents.' if admin else 'Request documents, book appointments, and pay for student services.' }}</p>
+    {% if not admin %}<p class="hero-profile">{{ g.user.course }} · {{ g.user.college }}</p>{% endif %}
+  </div>
+</section>
+<section class="office-section" aria-labelledby="services-heading">
+  <div class="site-width">
+    <h2 id="services-heading">{{ 'Admin tools' if admin else 'University offices' }}</h2>
+    <div class="service-grid">
+      {% if admin %}
+        {% set services = [
+          ('Cashier', 'Look up orders and record in-person payments.', 'Find an order', 'admin_cashier'),
+          ('Verify documents', 'Look up a document ID or scan a verification QR.', 'Verify a document', 'verification'),
+          ('All requests', 'Review submitted forms and payment status.', 'View submitted requests', 'admin_requests')
+        ] %}
+      {% else %}
+        {% set services = [
+          ('OSAS', 'ID and lanyard services, medical appointments, and dental appointments.', 'Choose a service', 'osas_index'),
+          ('Registrar', 'Transcripts, diplomas, certifications, and other academic records.', 'Request documents', 'registrar_request'),
+          ('Cashier', 'Pay for your request online or in person.', 'Find an order', 'cashier')
+        ] %}
+      {% endif %}
+      {% for title, description, action, endpoint in services %}
+        <article class="service-card">
+          <h3>{{ title }}</h3>
+          <p>{{ description }}</p>
+          <a class="service-action" href="{{ url_for(endpoint) }}">{{ action }}</a>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+<section class="activity-section" aria-labelledby="activity-heading">
+  <div class="site-width">
+    <div class="section-head"><h2 id="activity-heading">Recent requests</h2><a href="{{ url_for('admin_requests' if admin else 'student_requests') }}">View all</a></div>
+    {% if orders %}
+      {{ request_table(orders, admin) }}
+    {% else %}
+      <p class="activity-empty">No requests yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

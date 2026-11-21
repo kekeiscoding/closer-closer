@@ -1,0 +1,67 @@
+{% from 'components.html' import icon, logo, csrf, navigation with context %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>{% block title %}ISATU - SSS{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='isatu.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script type="module" src="{{ url_for('static', filename='scanner.js') }}"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+{% set active = request.endpoint or '' %}
+{% set workspace = g.user and active not in ['checkout', 'guest_checkout'] %}
+{% set overview = workspace and active == 'home' %}
+<header class="site-header">
+  <div class="global-bar">
+    <div class="site-width global-inner">
+      {% if workspace %}
+        <a class="global-brand" href="{{ url_for('home') }}">{{ logo() }}</a>
+        <nav class="desktop-nav" aria-label="Main navigation">{{ navigation(active, g.user.role) }}</nav>
+        <details class="mobile-nav">
+          <summary>{{ icon('menu', 21) }}<span class="sr-only">Menu</span></summary>
+          <nav class="mobile-links" aria-label="Main navigation">{{ navigation(active, g.user.role) }}</nav>
+        </details>
+      {% elif g.user %}
+        <a class="global-brand" href="{{ url_for('home') }}">{{ logo() }}</a>
+      {% else %}
+        {{ logo() }}
+      {% endif %}
+    </div>
+  </div>
+  {% if workspace %}
+    {% set labels = {
+      'osas_index': 'OSAS', 'osas_request': 'OSAS', 'registrar_request': 'Registrar',
+      'cashier': 'Cashier', 'admin_cashier': 'Cashier', 'verification': 'Verify documents',
+      'verify_document': 'Verify documents', 'admin_requests': 'All requests',
+      'admin_detail': 'All requests', 'student_requests': 'My requests', 'student_detail': 'My requests'
+    } %}
+    <div class="local-bar">
+      <div class="site-width local-inner">
+        <span class="local-title">{{ labels.get(active, 'Administration' if g.user.role == 'admin' else 'Student Services') }}</span>
+        <details class="account">
+          <summary><span class="account-name">{{ g.user.name }}</span><span class="account-label">Account</span>{{ icon('down', 13) }}</summary>
+          <div class="account-panel">
+            <strong>{{ g.user.name }}</strong>
+            {% if g.user.role == 'student' %}
+              <p>{{ g.user.id }} · {{ g.user.course }}</p><p>{{ g.user.college }}</p>
+            {% endif %}
+            <form method="post" action="{{ url_for('logout') }}">{{ csrf() }}<button class="button utility" type="submit">Sign out</button></form>
+          </div>
+        </details>
+      </div>
+    </div>
+  {% endif %}
+</header>
+<main id="main" class="{{ 'overview-main' if overview else 'main-content' if workspace else 'standalone' }}">
+  {% for message in get_flashed_messages() %}<p class="notice success" role="status">{{ icon('check', 19) }} {{ message }}</p>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <div class="site-width">Iloilo Science and Technology University</div>
+</footer>
+</body>
+</html>

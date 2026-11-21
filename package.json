@@ -1,0 +1,15 @@
+{
+  "name": "isatu-sss",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild frontend/scanner.js --bundle --format=esm --minify --log-level=warning --outfile=sss/static/scanner.js"
+  },
+  "dependencies": {
+    "@zxing/browser": "0.1.5",
+    "@zxing/library": "0.21.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

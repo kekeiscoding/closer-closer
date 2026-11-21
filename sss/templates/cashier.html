@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% from 'components.html' import icon, scanner, status, order_items, csrf with context %}
+{% block title %}Cashier · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Record an in-person payment' if admin else 'Pay for a request' }}</h1>
+  <p class="lead">{{ 'Look up a student’s order before confirming the payment.' if admin else 'Enter your order ID or scan its QR to review the amount due.' }}</p>
+</div>
+<div class="two-column cashier-grid">
+  <section class="panel form-panel">
+    <div class="form-head"><h2>Find an order</h2></div>
+    <form class="lookup-form" method="get" action="{{ url_for('admin_cashier' if admin else 'cashier') }}">
+      <label class="field"><span>Order ID</span><input type="text" name="order_id" value="{{ value }}" placeholder="IS-…" maxlength="32" required></label>
+      <button class="button primary" type="submit">Find order</button>
+    </form>
+    {% if value and not order %}<p class="notice danger" role="alert">Order not found. Check the ID and try again.</p>{% endif %}
+    {% if not admin %}{{ scanner('order', config.APP_BASE_URL) }}{% endif %}
+  </section>
+  {% if order %}
+  <section class="panel form-panel" data-payment-content="cashier" {% if not order.paid_at and not order.academic_issues %}data-payment-order="{{ order.id }}"{% endif %}>
+    <div class="form-head"><h2>Order details</h2></div>
+    <div class="order-caption"><span class="code">{{ order.id }}</span>{{ status(order) }}</div>
+    {% if admin %}<p class="lead order-student">{{ order.profile.name }} · {{ order.student_id }}</p>{% endif %}
+    {{ order_items(order) }}
+    {% if order.paid_at %}
+      <p class="notice success">{{ icon('check', 19) }} Payment recorded · {{ order.receipt }}</p>
+      <a class="button secondary" href="{{ url_for('admin_detail' if admin else 'student_detail', order_id=order.id) }}">{{ 'View request' if admin else 'View downloads' }}</a>
+    {% elif order.academic_issues %}
+      <p class="notice danger" role="alert">This request has inconsistent academic dates. Submit a corrected Registrar request before paying.</p>
+      {% if not admin %}<a class="button secondary" href="{{ url_for('registrar_request') }}">Start a corrected request</a>{% endif %}
+    {% elif admin %}
+      <form method="post" action="{{ url_for('cashier_confirm', order_id=order.id) }}">
+        {{ csrf() }}<button class="button primary wide-button" type="submit">Confirm in-person payment</button>
+      </form>
+    {% else %}
+      <div class="payment-choices">
+        <details class="payment-choice" open>
+          <summary>{{ icon('scan', 20) }} <strong>Online</strong><span>LANDBANK demo</span></summary>
+          <div class="payment-choice-content">
+            <img class="qr-image payment-qr" src="{{ url_for('payment_qr', order_id=order.id) }}" width="158" height="158" alt="Simulated LANDBANK checkout QR for {{ order.id }}">
+            <small>Scan on any device to open checkout and pay.</small>
+            <a class="button primary" href="{{ checkout_url }}" target="_blank" rel="noreferrer">Open checkout</a>
+          </div>
+        </details>
+        <details class="payment-choice">
+          <summary>{{ icon('wallet', 20) }} <strong>In person</strong><span>University cashier</span></summary>
+          <div class="payment-choice-content"><p>Present order ID <strong class="code">{{ order.id }}</strong> at the Cashier. Your PDFs will appear under My requests once the payment is recorded.</p></div>
+        </details>
+      </div>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

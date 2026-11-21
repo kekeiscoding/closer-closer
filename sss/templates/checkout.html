@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% from 'components.html' import icon, csrf, order_items, issued_files with context %}
+{% block title %}Payment checkout · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="checkout-layout" data-payment-content="legacy" {% if not order.paid_at and not order.academic_issues %}data-payment-order="{{ order.id }}"{% endif %}>
+  <section class="panel form-panel checkout-panel">
+    <p class="eyebrow">LANDBANK demo</p>
+    <h1>{{ 'Payment complete' if order.paid_at else 'Review your payment' }}</h1>
+    <p class="lead">Simulated checkout for ISATU student services.</p>
+    <p class="order-id"><span>Order ID</span><strong class="code">{{ order.id }}</strong></p>
+    {{ order_items(order) }}
+    {% if order.paid_at %}
+      <p class="notice success">{{ icon('check', 19) }} Payment reference · {{ order.receipt }}</p>
+      <h2>Downloads</h2>{{ issued_files(order) }}
+      <a class="button secondary wide-button" href="{{ url_for('student_requests') }}">Go to My requests</a>
+    {% elif order.academic_issues %}
+      <p class="notice danger" role="alert">This request has inconsistent academic dates. Submit a corrected Registrar request before paying.</p>
+      <a class="button secondary" href="{{ url_for('registrar_request') }}">Start a corrected request</a>
+    {% else %}
+      <form method="post">{{ csrf() }}<button type="submit" class="button primary wide-button">Pay {{ order.total | money }}</button></form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

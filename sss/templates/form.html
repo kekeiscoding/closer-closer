@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% from 'components.html' import icon, csrf with context %}
+{% block title %}{{ heading }} · ISATU - SSS{% endblock %}
+
+{% macro field(field, condition='') %}
+  {% set value = raw.get(field.name, '') %}
+  {% set type = {'year':'number', 'age':'number', 'pain':'number', 'school_year':'text'}.get(field.kind, field.kind) %}
+  {% set error = errors.get(field.name) %}
+  <div class="field {{ 'full' if field.wide or field.kind == 'checks' }}" {% if condition %}data-show-when="{{ condition }}"{% endif %}>
+    {% if field.kind == 'checks' %}
+      <fieldset class="check-group"><legend>{{ field.label }}{% if field.required %} <b aria-hidden="true">*</b>{% endif %}</legend>
+        <div class="checkbox-grid">
+        {% for option in field.options %}
+          <label class="checkbox"><input type="checkbox" name="{{ field.name }}" value="{{ option }}" {% if option in raw.getlist(field.name) %}checked{% endif %}><span>{{ option }}</span></label>
+        {% endfor %}
+        </div>
+      </fieldset>
+    {% else %}
+      <label for="{{ field.name }}">{{ field.label }}{% if field.required %} <b aria-hidden="true">*</b>{% endif %}</label>
+      {% if field.kind == 'select' %}
+        <select id="{{ field.name }}" name="{{ field.name }}" {% if field.required %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="{{ field.name }}-error"{% endif %}>
+          <option value="">Select an option</option>
+          {% for option in field.options %}<option value="{{ option }}" {% if raw.get(field.name) == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select>
+      {% elif field.kind == 'textarea' %}
+        <textarea id="{{ field.name }}" name="{{ field.name }}" rows="3" maxlength="1800" {% if field.required %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="{{ field.name }}-error"{% endif %}>{{ value }}</textarea>
+      {% else %}
+        <input id="{{ field.name }}" name="{{ field.name }}" type="{{ type }}" value="{{ value }}"
+          {% if type in ['text', 'tel', 'email'] %}maxlength="200"{% endif %}
+          {% if field.kind == 'year' %}min="1900" max="2200"{% elif field.kind == 'age' %}min="0" max="120"{% elif field.kind == 'pain' %}min="0" max="10"{% endif %}
+          {% if field.name == 'preferred_date' %}min="{{ today }}"{% elif field.name in ['birth_date','last_visit'] %}max="{{ today }}"{% endif %}
+          {% if field.required %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="{{ field.name }}-error"{% endif %}>
+      {% endif %}
+    {% endif %}
+    {% if field.hint %}<small class="form-hint">{{ field.hint }}</small>{% endif %}
+    {% if error %}<small class="field-error" id="{{ field.name }}-error">{{ error }}</small>{% endif %}
+  </div>
+{% endmacro %}
+
+{% block content %}
+{% set is_registrar = office == 'Registrar' %}
+{% set selected = raw.getlist('services') %}
+<div class="page-head">
+  <a class="back-link" href="{{ url_for('home' if is_registrar else 'osas_index') }}">{{ icon('back', 16) }} {{ 'Overview' if is_registrar else 'OSAS services' }}</a>
+  <h1>{{ heading }}</h1>
+  <p class="lead">{{ unit_price | money }} {{ 'per copy' if is_registrar else 'per request' }}. Download your PDF after payment.</p>
+</div>
+{% if guidance %}<p class="notice">{{ icon('info', 20) }} {{ guidance }}</p>{% endif %}
+{% if errors %}
+  <div class="notice danger" role="alert"><div><strong>Check the following details and submit again.</strong>
+    <ul>{% for error in errors.values() %}<li>{{ error }}</li>{% endfor %}</ul>
+  </div></div>
+{% endif %}
+<form method="post" class="form-stack" {% if is_registrar %}enctype="multipart/form-data" data-registrar-form data-unit-price="{{ unit_price }}"{% endif %}>
+  {{ csrf() }}
+  <input type="hidden" name="request_key" value="{{ request_key }}">
+  <section class="panel form-panel" aria-labelledby="profile-heading">
+    <div class="form-head"><h2 id="profile-heading">Student profile</h2></div>
+    <dl class="profile-grid">
+      <div><dt>Name</dt><dd>{{ g.user.name }}</dd></div>
+      <div><dt>Student ID</dt><dd>{{ g.user.id }}</dd></div>
+      <div><dt>Course / year / section</dt><dd>{{ g.user.course }}</dd></div>
+      <div><dt>College</dt><dd>{{ g.user.college }}</dd></div>
+    </dl>
+  </section>
+  {% if is_registrar %}
+  <section class="panel form-panel" aria-labelledby="document-heading">
+    <div class="form-head"><h2 id="document-heading">Documents requested</h2></div>
+    <div class="document-options">
+      {% for code, title in registrar.items() %}
+      <div class="document-option">
+        <label class="checkbox"><input type="checkbox" name="services" value="{{ code }}" {% if code in selected %}checked{% endif %}><span>{{ title }}</span></label>
+        <label class="quantity" data-show-when="services:{{ code }}"><span class="sr-only">Copies of {{ title }}</span>
+          <input type="number" name="copies_{{ code }}" min="1" max="20" value="{{ raw.get('copies_' ~ code, '1') }}" aria-label="Copies of {{ title }}"><span>copies</span>
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="field-grid conditional-fields">
+      <label class="field full" data-show-when="services:others"><span>Specify the document</span>
+        <input name="others" type="text" maxlength="200" value="{{ raw.get('others', '') }}">
+      </label>
+      <label class="field full" data-show-when="services:good-moral"><span>Good Moral clearance copy</span>
+        <input name="clearance" type="file" accept="application/pdf,image/jpeg,image/png">
+        <small class="form-hint">PDF, JPG, or PNG up to 5 MB. Select the file again if you correct the form.</small>
+      </label>
+    </div>
+  </section>
+  <section class="panel form-panel" data-show-when="services:grades" aria-labelledby="coverage-heading">
+    <div class="form-head"><h2 id="coverage-heading">Certification of Grades coverage</h2></div>
+    <div class="field-grid">{% for input in grade_fields %}{{ field(input) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+  {% set conditions = {'tor_purpose':'services:tor', 'further_studies':'tor_purpose:For further studies', 'purpose':'services:!tor', 'clinic_other':'clinic_service:Other', 'condition_other':'conditions:Other', 'replacement_other':'replacement_reason:Other'} %}
+  {% for title, fields in groups %}
+    <section class="panel form-panel">
+      <div class="form-head"><h2>{{ title }}</h2></div>
+      <div class="field-grid">{% for input in fields %}{{ field(input, conditions.get(input.name, '')) }}{% endfor %}</div>
+    </section>
+  {% endfor %}
+  <section class="panel form-panel consent-panel">
+    <h2>{{ 'Declaration and consent' if guidance else 'Declaration' }}</h2>
+    <label class="checkbox"><input type="checkbox" name="consent" value="yes" required {% if raw.get('consent') == 'yes' %}checked{% endif %}><span>{{ declaration }}</span></label>
+    <div class="form-actions">
+      <p class="fee-line">Total <strong data-request-total>{{ unit_price | money if not is_registrar else '₱0.00' }}</strong></p>
+      <button class="button primary" type="submit">Submit request</button>
+    </div>
+  </section>
+</form>
+{% endblock %}

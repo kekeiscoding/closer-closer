@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}OSAS · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Office of Student Affairs and Services</h1>
+  <p class="lead">Select a service to submit a request.</p>
+</div>
+<div class="service-grid">
+  {% for service, (title, description, glyph, code) in services.items() %}
+    <article class="service-card">
+      <h2>{{ title }}</h2>
+      <p>{{ description }}</p>
+      <p class="service-price">{{ unit_price | money }} per request</p>
+      <a class="service-action" href="{{ url_for('osas_request', service=service) }}" aria-label="Start request for {{ title }}">Start request</a>
+    </article>
+  {% endfor %}
+</div>
+{% endblock %}

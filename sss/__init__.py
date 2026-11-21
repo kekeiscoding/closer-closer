@@ -28,6 +28,7 @@ from .db import (
 )
 from .live import register_payment_updates
 from .pdfs import qr_png
+from .students import register_students, student, verify_password
 
 
 ORDER_ID = re.compile(r"IS-[A-F0-9]{12}")
@@ -86,6 +87,7 @@ def create_app(config=None):
     with app.app_context():
         init_db()
     register_views(app)
+    register_students(app, login_required)
     register_payment_updates(app)
     return app
 
@@ -152,7 +154,15 @@ def submission_key():
 def register_views(app):
     @app.before_request
     def load_profile():
-        account = app.config["ACCOUNTS"].get(session.get("account"))
+        key = session.get("account")
+        account = student(key)
+        if account:
+            if not account["active"] or session.get("revision") != account["revision"]:
+                session.clear()
+                account = None
+        else:
+            candidate = app.config["ACCOUNTS"].get(key)
+            account = candidate if candidate and candidate["role"] == "admin" else None
         g.user = {key: account[key] for key in PROFILE_KEYS} if account else None
 
     @app.after_request
@@ -181,20 +191,23 @@ def register_views(app):
         if g.user:
             return redirect(destination)
         error = None
-        identity = ""
+        identity = request.args.get("identity", "")[:120]
         if request.method == "POST":
             identity = request.form.get("identity", "").strip()[:120]
             password = request.form.get("password", "")[:200]
-            accounts = app.config["ACCOUNTS"]
             key = identity.casefold()
-            account = accounts.get(key)
-            verifier = account or next(iter(accounts.values()))
-            digest = scrypt(password.encode(), salt=bytes.fromhex(verifier["salt"]),
-                            n=2**14, r=8, p=1, dklen=32)
-            if hmac.compare_digest(digest, bytes.fromhex(verifier["digest"])) and account:
+            account = student(identity)
+            if not account:
+                candidate = app.config["ACCOUNTS"].get(key)
+                account = candidate if candidate and candidate["role"] == "admin" else None
+            verifier = account or next(iter(app.config["ACCOUNTS"].values()))
+            valid = verify_password(verifier, password)
+            if account and valid and (account["role"] == "admin" or account["active"]):
                 session.clear()
                 session.permanent = True
                 session["account"] = key
+                if account["role"] == "student":
+                    session["revision"] = account["revision"]
                 return redirect(destination, 303)
             error = "Check your ID and password and try again."
         return render_template("login.html", error=error, identity=identity, destination=destination), (401 if error else 200)

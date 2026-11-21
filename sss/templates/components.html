@@ -26,6 +26,7 @@
 {% set overview = ('Overview', 'home', ['home']) %}
 {% if role == 'admin' %}
   {% set links = [overview,
+    ('Students', 'student_list', ['student_list', 'student_edit']),
     ('Cashier', 'admin_cashier', ['admin_cashier']),
     ('Verify documents', 'verification', ['verification', 'verify_document']),
     ('All requests', 'admin_requests', ['admin_requests', 'admin_detail'])] %}

@@ -22,6 +22,8 @@ Shared repository instructions for Codex and Gemini CLI. `GEMINI.md` imports thi
 
 ## Behavior to preserve
 
+- Student accounts live in SQLite and are seeded once by the recorded migration. Keep account revision checks for password resets and deactivation, and delete a deactivated student’s related records atomically. New students receive an assigned ID and stable sample transcript.
+
 - The current payment QR opens `/checkout/<token>` without a login. Give that token access only to the order’s public line items, total, and simulated payment. Require student ownership or admin access for full order details, attachments, and PDFs. Require admin access to verify issued Registrar documents. Existing `/pay/<order-id>` links use student sign-in.
 - Confirm payment and issue PDFs in the same SQLite transaction. Repeated confirmation must return the original payment and files. Update open request views over WebSocket, with the HTTP status endpoint as a fallback, without reloading the page.
 - Validate Registrar attendance years, optional graduation date, and any grade coverage on the server. Show inconsistent older orders as needing review and block new payments on those unpaid orders. Retain existing paid records and issued PDFs so the admin can review the original. Use the Manila date for validation.

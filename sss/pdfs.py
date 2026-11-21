@@ -166,7 +166,7 @@ def sample_story(order, item, copy):
             Spacer(1, 12),
             paragraph(student["name"], DIPLOMA_NAME),
             Spacer(1, 12),
-            paragraph("Bachelor of Science in Information Technology", DIPLOMA_LABEL),
+            paragraph(order.get("sample_program") or "Bachelor of Science in Information Technology", DIPLOMA_LABEL),
             paragraph(student["college"], DIPLOMA_NOTE),
             Spacer(1, 26),
             paragraph("Illustrative degree document for the ISATU - SSS demonstration.", DIPLOMA_NOTE),
@@ -187,10 +187,12 @@ def sample_story(order, item, copy):
         paragraph(f"Illustrative grades  |  First semester, {entry_year}-{entry_year + 1}", SECTION),
         panel([
             ("Course", "Descriptive title", "Units", "Sample grade"),
+            *order.get("sample_transcript", [
             ("IT 101", "Introduction to Computing", 3, "1.75"),
             ("IT 102", "Computer Programming 1", 3, "1.50"),
             ("GE 101", "Understanding the Self", 3, "1.75"),
             ("GE 102", "Mathematics in the Modern World", 3, "2.00"),
+            ]),
         ], (74, 258, 62, 134)),
         paragraph("Request details", SECTION),
         panel([

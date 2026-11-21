@@ -1,11 +1,12 @@
 import json
 from urllib.parse import urlsplit
 
-from flask import abort, g, request
+from flask import abort, g, request, session
 from flask_sock import Sock
 from simple_websocket import ConnectionClosed
 
 from .db import guest_payment_status, paid_order_ids
+from .students import student
 
 
 def stream_status(socket, snapshot, *, complete=lambda _status: False):
@@ -37,6 +38,10 @@ def register_payment_updates(app):
         if g.user is None:
             return None
         student_id = g.user["id"] if g.user["role"] == "student" else None
+        if student_id:
+            account = student(student_id)
+            if not account or not account["active"] or account["revision"] != session.get("revision"):
+                return None
         return {"paid_orders": paid_order_ids(student_id)}
 
     @app.get("/payments/status")

@@ -107,7 +107,7 @@ function prepareGuestCheckout(section) {
       });
       if (!response.ok) {
         error.textContent = response.status === 409
-          ? "This order’s academic dates need review before payment."
+          ? "This order cannot be paid. Contact the university for help."
           : "Payment could not be recorded. Try again.";
         error.hidden = false;
         return;

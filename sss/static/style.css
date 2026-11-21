@@ -447,6 +447,8 @@ tr:last-child td { border-bottom: 0; }
   }
   tbody tr:has(.table-student) { grid-template-areas: "request status" "student student" "order total"; }
   tbody tr:last-child { border-bottom: 0; }
+  .student-table tbody tr { display: flex; flex-direction: column; gap: 3px; }
+  .student-table tbody td { display: block; }
   .panel tbody tr { padding-inline: 17px; }
   tbody td { padding: 0; border: 0; }
   .table-request { grid-area: request; overflow-wrap: anywhere; }

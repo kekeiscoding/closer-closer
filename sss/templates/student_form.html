@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% from 'components.html' import csrf with context %}
+{% block title %}{{ 'Sign up' if mode == 'signup' else 'Change password' if mode == 'password' else 'Edit student' }} · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="{{ 'checkout-layout' if mode == 'signup' else '' }}">
+  <div class="page-head">
+    <h1>{{ 'Create a student account' if mode == 'signup' else 'Change password' if mode == 'password' else 'Student details' }}</h1>
+    {% if mode == 'signup' %}<p class="lead">Your student ID will be generated when you sign up.</p>{% endif %}
+    {% if mode == 'edit' %}<p class="lead">{{ account.id }} · {{ 'Active' if account.active else 'Deactivated' }}</p>{% endif %}
+  </div>
+  {% if errors %}<div class="notice danger" role="alert"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+  <form method="post" class="panel form-panel form-stack">
+    {{ csrf() }}
+    {% if mode != 'password' %}
+    <div class="field-grid">
+      {% for key, label in [('first_name','Given name'),('middle_name','Middle name (optional)'),('last_name','Surname'),('program','Course'),('year_level','Year level'),('section','Section'),('college','College')] %}
+      <label class="field"><span>{{ label }}</span><input name="{{ key }}" value="{{ data.get(key, '') }}" maxlength="100" {% if key != 'middle_name' %}required{% endif %}></label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if mode == 'password' %}<label class="field"><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>{% endif %}
+    {% if mode != 'edit' %}
+    <label class="field"><span>{{ 'New password' if mode == 'password' else 'Password' }}</span><input type="password" name="password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+    <label class="field"><span>Confirm password</span><input type="password" name="confirm_password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+    {% endif %}
+    <div><button class="button primary" type="submit">{{ 'Sign up' if mode == 'signup' else 'Update password' if mode == 'password' else 'Save details' }}</button></div>
+  </form>
+  {% if mode == 'signup' %}<p class="lead"><a href="{{ url_for('login') }}">Back to sign in</a></p>{% endif %}
+  {% if mode == 'edit' %}
+  <section class="panel form-panel dashboard-section">
+    <h2>Account actions</h2>
+    <form method="post" action="{{ url_for('student_action', identity=account.id, action='reset-password') }}">{{ csrf() }}<button class="button secondary" type="submit">Reset password to surname</button></form>
+    {% if account.active %}
+      <form method="post" action="{{ url_for('student_action', identity=account.id, action='deactivate') }}">{{ csrf() }}<button class="button secondary" type="submit">Deactivate student</button></form>
+    {% else %}
+      <form method="post" action="{{ url_for('student_action', identity=account.id, action='delete') }}" class="form-stack">
+        {{ csrf() }}<p>Permanent deletion removes this student and all associated requests, payments, attachments, and PDFs.</p>
+        <label class="field"><span>Enter {{ account.id }} to confirm</span><input name="confirm_id" required></label>
+        <div><button class="button secondary" type="submit">Permanently delete student</button></div>
+      </form>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

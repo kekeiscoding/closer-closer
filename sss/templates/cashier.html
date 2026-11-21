@@ -26,7 +26,7 @@
       <p class="notice success">{{ icon('check', 19) }} Payment recorded · {{ order.receipt }}</p>
       <a class="button secondary" href="{{ url_for('admin_detail' if admin else 'student_detail', order_id=order.id) }}">{{ 'View request' if admin else 'View downloads' }}</a>
     {% elif order.academic_issues %}
-      <p class="notice danger" role="alert">This request has inconsistent academic dates. Submit a corrected Registrar request before paying.</p>
+      <p class="notice danger" role="alert">This order cannot be paid. Review the account status and request details.</p>
       {% if not admin %}<a class="button secondary" href="{{ url_for('registrar_request') }}">Start a corrected request</a>{% endif %}
     {% elif admin %}
       <form method="post" action="{{ url_for('cashier_confirm', order_id=order.id) }}">

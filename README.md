@@ -18,6 +18,12 @@ Open [localhost:8000](http://localhost:8000). On another port, set `APP_BASE_URL
 
 The app stores its SQLite database and session key under the ignored `instance/` directory. Set `ISATU_DATA_DIR` to a separate directory when running a disposable demo or testing an upgrade.
 
+### Student accounts
+
+Students can sign up with a profile and password. The app assigns an ID using the Manila year, a random four-digit number, and an A, U, or I suffix. Students can change passwords in their account menu. Admins manage students, reset passwords to their current surname, deactivate access, and permanently delete deactivated accounts and their associated data.
+
+Existing demo students are migrated into SQLite once with their existing credentials. New students receive a consistent randomized sample transcript at their first transcript payment.
+
 ### Demo flow
 
 1. Sign in as a student, choose OSAS or Registrar, and submit a request. The receipt shows the order ID and a payment QR.

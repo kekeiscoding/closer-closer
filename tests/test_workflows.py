@@ -347,3 +347,56 @@ def test_clinic_derives_age_with_single_preferred_time(app):
         answers = database.get_order(order_id, detail=True)["answers"]
         assert int(answers["age"]) >= 18 and "schedule" not in answers
         assert answers["preferred_time"] == "15:00"
+
+
+def test_student_account_lifecycle(app):
+    from re import search
+
+    visitor = app.test_client()
+    form = {
+        "first_name": "Demo", "middle_name": "", "last_name": "Sample",
+        "program": "BSIT", "year_level": "1", "section": "A", "college": "Computing",
+        "password": "demo-password", "confirm_password": "demo-password",
+    }
+    result = visitor.post("/signup", data=form, follow_redirects=True)
+    identity = search(r"\d{4}-\d{4}-[AUI]", result.get_data(as_text=True)).group()
+    assert visitor.post("/login", data={"identity": identity, "password": "demo-password"}).status_code == 303
+    other_session = app.test_client()
+    other_session.post("/login", data={"identity": identity, "password": "demo-password"})
+    admin = login(app.test_client(), ADMIN)
+    edit = {**form, "last_name": "Updated"}
+    assert admin.post(f"/admin/students/{identity}/edit", data=edit).status_code == 303
+    assert admin.post(f"/admin/students/{identity}/reset-password").status_code == 303
+    assert other_session.get("/requests").status_code == 302
+    assert visitor.post("/login", data={"identity": identity, "password": "Updated"}).status_code == 303
+    assert visitor.post("/account/password", data={
+        "current_password": "Updated", "password": "new-password", "confirm_password": "new-password",
+    }).status_code == 303
+    assert visitor.get("/requests").status_code == 200
+    order_ids = []
+    for _ in range(2):
+        order = submit(visitor, registrar_form("tor"))
+        assert visitor.post(f"/pay/{order}").status_code == 303
+        order_ids.append(order)
+    with app.app_context():
+        transcript = database.db().execute("SELECT transcript FROM students WHERE id=?", (identity,)).fetchone()[0]
+    pdf_texts = []
+    for order in order_ids:
+        [file] = files_for(app, order)
+        pdf_texts.append(" ".join(page.extract_text() for page in pdf_from(visitor, file["id"]).pages))
+    import json
+    for _, title, _, _ in json.loads(transcript):
+        assert all(title in text for text in pdf_texts)
+    unpaid = submit(visitor, registrar_form("diploma"))
+    with app.app_context():
+        token = database.payment_token(unpaid)
+    assert admin.post(f"/admin/students/{identity}/deactivate").status_code == 303
+    assert app.test_client().post(f"/checkout/{token}").status_code == 409
+    assert admin.post(f"/admin/cashier/{unpaid}/confirm").status_code == 409
+    assert visitor.get("/requests").status_code == 302
+    assert admin.post(f"/admin/students/{identity}/delete", data={"confirm_id": identity}).status_code == 303
+    with app.app_context():
+        assert database.db().execute("SELECT 1 FROM students WHERE id=?", (identity,)).fetchone() is None
+        assert database.db().execute("SELECT 1 FROM orders WHERE student_id=?", (identity,)).fetchone() is None
+        database.init_db()
+        assert database.db().execute("SELECT 1 FROM students WHERE id=?", (identity,)).fetchone() is None

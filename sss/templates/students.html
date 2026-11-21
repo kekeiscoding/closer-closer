@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Students · ISATU - SSS{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Students</h1><p class="lead">Manage student accounts and details.</p></div>
+<div class="panel table-wrap">
+<table class="student-table">
+<thead><tr><th>Name</th><th>Student ID</th><th>Course / section</th><th>College</th><th>Status</th></tr></thead>
+<tbody>
+{% for student in students %}
+<tr><td><a href="{{ url_for('student_edit', identity=student.id) }}">{{ student.name }}</a></td><td class="code">{{ student.id }}</td><td>{{ student.course }}</td><td>{{ student.college }}</td><td>{{ 'Active' if student.active else 'Deactivated' }}</td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+{% endblock %}

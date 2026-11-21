@@ -11,6 +11,13 @@ from .pdfs import make_pdf
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS students (
+    id TEXT PRIMARY KEY COLLATE NOCASE, first_name TEXT NOT NULL, middle_name TEXT NOT NULL DEFAULT '',
+    last_name TEXT NOT NULL, program TEXT NOT NULL, year_level TEXT NOT NULL, section TEXT NOT NULL,
+    college TEXT NOT NULL, salt TEXT NOT NULL, digest TEXT NOT NULL, revision TEXT NOT NULL,
+    active INTEGER NOT NULL, is_demo INTEGER NOT NULL DEFAULT 0, transcript TEXT
+);
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     student_id TEXT NOT NULL,
@@ -76,6 +83,22 @@ def init_db():
     connection = db()
     connection.execute("PRAGMA journal_mode = WAL")
     connection.executescript(SCHEMA)
+    with write_transaction() as connection:
+        if not connection.execute("SELECT 1 FROM migrations WHERE name='students-v1'").fetchone():
+            for account in current_app.config["ACCOUNTS"].values():
+                if account["role"] != "student":
+                    continue
+                program, year_section = account["course"].rsplit(" ", 1)
+                year_level, section = year_section.split("-", 1)
+                connection.execute(
+                    """INSERT INTO students
+                       (id, first_name, middle_name, last_name, program, year_level, section, college,
+                        salt, digest, revision, active, is_demo)
+                       VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)""",
+                    (account["id"], account["first_name"], account["last_name"], program, year_level,
+                     section, account["college"], account["salt"], account["digest"], secrets.token_hex(16)),
+                )
+            connection.execute("INSERT INTO migrations VALUES ('students-v1')")
 
 
 @contextmanager
@@ -228,12 +251,32 @@ def confirm_payment(order_id, actor, method, *, token=None):
         order = get_guest_order(token, detail=True) if token else get_order(order_id, student_id, detail=True)
         if order is None:
             return None
+        account = connection.execute("SELECT active FROM students WHERE id=? COLLATE NOCASE", (order["student_id"],)).fetchone()
+        if not order["paid_at"] and (not account or not account["active"]):
+            order["academic_issues"].append("This student account is inactive.")
         if order["paid_at"] or order["academic_issues"]:
             return order
         order_id = order["id"]
         order["receipt"] = identifier("PAY", 6)
         order["paid_at"] = timestamp()
         order["payment_method"] = method
+        order["sample_program"] = None
+        if not connection.execute("SELECT is_demo FROM students WHERE id=?", (order["student_id"],)).fetchone()["is_demo"]:
+            order["sample_program"] = order["profile"]["course"]
+        if any(item["service"] == "tor" for item in order["items"]):
+            record = connection.execute("SELECT is_demo, transcript FROM students WHERE id=?", (order["student_id"],)).fetchone()
+            if record and not record["is_demo"]:
+                transcript = record["transcript"]
+                if not transcript:
+                    pool = [("IT 101", "Introduction to Computing"), ("IT 102", "Computer Programming"),
+                            ("GE 101", "Understanding the Self"), ("GE 102", "Mathematics in the Modern World"),
+                            ("GE 103", "The Contemporary World"), ("GE 104", "Purposive Communication"),
+                            ("IT 103", "Web Development"), ("IT 104", "Data Structures")]
+                    import random
+                    transcript = json.dumps([(code, title, 3, secrets.choice(("1.25", "1.50", "1.75", "2.00")))
+                                             for code, title in random.SystemRandom().sample(pool, 4)])
+                    connection.execute("UPDATE students SET transcript=? WHERE id=?", (transcript, order["student_id"]))
+                order["sample_transcript"] = json.loads(transcript)
         verifiable = order["office"] == "Registrar"
         for item in order["items"]:
             for copy in range(1, item["quantity"] + 1):

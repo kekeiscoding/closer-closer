@@ -48,7 +48,7 @@
             <strong>{{ g.user.name }}</strong>
             {% if g.user.role == 'student' %}
               <p>{{ g.user.id }} · {{ g.user.course }}</p><p>{{ g.user.college }}</p>
-            {% endif %}
+            <a href="{{ url_for('change_password') }}">Change password</a>{% endif %}
             <form method="post" action="{{ url_for('logout') }}">{{ csrf() }}<button class="button utility" type="submit">Sign out</button></form>
           </div>
         </details>
